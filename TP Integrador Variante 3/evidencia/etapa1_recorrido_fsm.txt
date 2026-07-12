@@ -1,0 +1,24 @@
+Recorrido de la FSM para la trama: @0C:DAT:adc=2048:77
+
+byte#  char     estado previo    -> estado nuevo     resultado
+0      @        WAIT_START       -> READ_LEN_HI      IN_PROGRESS
+1      0        READ_LEN_HI      -> READ_LEN_LO      IN_PROGRESS
+2      C        READ_LEN_LO      -> EXPECT_LEN_SEP   IN_PROGRESS
+3      :        EXPECT_LEN_SEP   -> READ_BODY        IN_PROGRESS
+4      D        READ_BODY        -> READ_BODY        IN_PROGRESS
+5      A        READ_BODY        -> READ_BODY        IN_PROGRESS
+6      T        READ_BODY        -> READ_BODY        IN_PROGRESS
+7      :        READ_BODY        -> READ_BODY        IN_PROGRESS
+8      a        READ_BODY        -> READ_BODY        IN_PROGRESS
+9      d        READ_BODY        -> READ_BODY        IN_PROGRESS
+10     c        READ_BODY        -> READ_BODY        IN_PROGRESS
+11     =        READ_BODY        -> READ_BODY        IN_PROGRESS
+12     2        READ_BODY        -> READ_BODY        IN_PROGRESS
+13     0        READ_BODY        -> READ_BODY        IN_PROGRESS
+14     4        READ_BODY        -> READ_BODY        IN_PROGRESS
+15     8        READ_BODY        -> EXPECT_CHK_SEP   IN_PROGRESS
+16     :        EXPECT_CHK_SEP   -> READ_CHECK_HI    IN_PROGRESS
+17     7        READ_CHECK_HI    -> READ_CHECK_LO    IN_PROGRESS
+18     7        READ_CHECK_LO    -> EXPECT_END       IN_PROGRESS
+19     \n       EXPECT_END       -> WAIT_START       MESSAGE_READY
+Mensaje decodificado: DAT payload='adc=2048'

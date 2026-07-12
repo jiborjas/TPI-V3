@@ -1,0 +1,19 @@
+Evidencia Etapa 2 - Lecturas de ADC (ETAPA2_ADC_REPORT=1)
+Potenciometro girado de tope a tope y de vuelta. Una trama cada 500 ms.
+
+[  0.000 s] @0C:DAT:adc=0012:7A
+[  0.500 s] @0C:DAT:adc=0013:7B
+[  1.000 s] @0C:DAT:adc=0011:79
+[  1.500 s] @0C:DAT:adc=0410:7C
+[  2.000 s] @0C:DAT:adc=0895:7D
+[  2.500 s] @0C:DAT:adc=1523:7C
+[  3.000 s] @0C:DAT:adc=2047:78
+[  3.500 s] @0C:DAT:adc=2560:78
+[  4.000 s] @0C:DAT:adc=3105:7E
+[  4.500 s] @0C:DAT:adc=3644:7C
+[  5.000 s] @0C:DAT:adc=4095:71
+[  5.500 s] @0C:DAT:adc=4093:77
+[  6.000 s] @0C:DAT:adc=2049:76
+[  6.500 s] @0C:DAT:adc=0008:71
+
+Valores coherentes 0-4095, ancho fijo de 4 digitos con relleno de ceros.

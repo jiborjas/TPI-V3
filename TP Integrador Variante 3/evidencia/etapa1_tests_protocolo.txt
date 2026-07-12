@@ -1,0 +1,82 @@
+== Protocolo: ejemplos del PDF ==
+[OK]   4.4.1 DAT:adc=2048 -> @0C:DAT:adc=2048:77
+[OK]   4.4.2 EVT:e_stop -> @0A:EVT:e_stop:14
+[OK]   4.4.3 STS:OK -> @06:STS:OK:56
+[OK]   4.4.4 CMD:mode=ESTOP -> @0E:CMD:mode=ESTOP:5C
+
+Tramas de la Variante 3 (calculadas con protocol_encode_frame):
+[OK]   encode variante 3
+       @0E:EVT:cmd_patrol:13
+[OK]   encode variante 3
+       @0F:STS:mode=PATROL:08
+[OK]   encode variante 3
+       @0C:EVT:cmd_stop:19
+[OK]   encode variante 3
+       @0D:STS:mode=STOP:06
+[OK]   encode variante 3
+       @0E:EVT:cmd_deploy:0C
+[OK]   encode variante 3
+       @0F:STS:mode=DEPLOY:17
+[OK]   encode variante 3
+       @0E:EVT:cmd_return:0D
+[OK]   encode variante 3
+       @0D:DAT:param=128:4C
+[OK]   encode variante 3
+       @0D:DAT:param=007:40
+[OK]   encode variante 3
+       @06:ACK:ok:4B
+[OK]   encode variante 3
+       @0B:ERR:timeout:4C
+[OK]   encode variante 3
+       @0A:ERR:bounds:35
+
+== Parser: aceptacion ==
+[OK]   parser acepta trama valida
+[OK]   parser acepta trama valida
+[OK]   parser acepta trama valida
+[OK]   parser acepta trama valida
+[OK]   parser acepta ACK:ok y ERR:timeout
+
+== Parser: rechazo ==
+[OK]   rechaza checksum incorrecto
+[OK]   rechaza LL inconsistente (@0A:CMD:ping:52)
+[OK]   rechaza tipo desconocido
+[OK]   rechaza caracter no imprimible
+
+== Parser: resincronizacion ==
+[OK]   resincroniza tras ruido inicial
+[OK]   distingue dos tramas pegadas
+[OK]   reutiliza '@' que corto una trama incompleta
+
+== Variante 3: ciclo de modos ==
+[OK]   arranca en STOP (estado seguro)
+[OK]   STOP -> DEPLOY
+[OK]   emite EVT + STS + DAT
+[OK]   EVT:cmd_deploy
+[OK]   STS:mode=DEPLOY
+[OK]   DAT:param=007 (ancho fijo)
+[OK]   DEPLOY -> RETURN
+[OK]   EVT:cmd_return
+[OK]   STS de RETURN es mode=STOP
+[OK]   DAT:param=255
+[OK]   RETURN -> PATROL
+[OK]   PATROL -> STOP (cierra el ciclo)
+
+== Variante 3: ACK y reintentos ==
+[OK]   con ACK:ok no reenvia
+[OK]   reenvia el EVT 5 veces (cada 500 ms)
+[OK]   agotados los reenvios emite ERR:timeout
+[OK]   desiste tras ERR:timeout
+[OK]   trama valida recibida -> ACK:ok
+
+== Variante 3: patrones de LED y buzzer ==
+[OK]   STOP: LED fijo
+[OK]   PATROL: destello 1 Hz (on a 100 ms, off a 700 ms)
+[OK]   DEPLOY: destello 4 Hz
+[OK]   RETURN: doble destello por periodo
+[OK]   PATROL: 1 pitido
+[OK]   STOP: 2 pitidos
+[OK]   DEPLOY: 3 pitidos
+[OK]   RETURN: 4 pitidos
+
+Resultado: 53 tests, 0 fallas

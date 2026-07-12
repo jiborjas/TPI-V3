@@ -1,0 +1,41 @@
+Sesion simulada - Variante 3: Caja de comandos fisica
+Firmware Blue Pill (logica real) + bridge simulado
+Boot: modo STOP, LED fijo, sin tramas hasta la primera presion
+
+[     2.000] BOTON presionado (anti-rebote OK), pote=1523
+[     2.000] PILL->BRIDGE  @0E:EVT:cmd_deploy:0C
+[     2.000] PILL->BRIDGE  @0F:STS:mode=DEPLOY:17
+[     2.000] PILL->BRIDGE  @0D:DAT:param=094:4A
+[     2.040] BRIDGE->PILL  @06:ACK:ok:4B
+[     6.040] BOTON presionado (anti-rebote OK), pote=3800
+[     6.040] PILL->BRIDGE  @0E:EVT:cmd_return:0D
+[     6.040] PILL->BRIDGE  @0D:STS:mode=STOP:06
+[     6.040] PILL->BRIDGE  @0D:DAT:param=236:40
+[     6.075] BRIDGE->PILL  @06:ACK:ok:4B
+[    10.075] BOTON presionado (anti-rebote OK), pote=512
+[    10.075] (bridge desconectado a proposito: escenario de falla)
+[    10.075] PILL->BRIDGE  @0E:EVT:cmd_patrol:13
+[    10.075] PILL->BRIDGE  @0F:STS:mode=PATROL:08
+[    10.075] PILL->BRIDGE  @0D:DAT:param=031:45
+[    10.575] PILL->BRIDGE  @0E:EVT:cmd_patrol:13
+[    11.075] PILL->BRIDGE  @0E:EVT:cmd_patrol:13
+[    11.275] (bridge reconectado)
+[    11.295] BRIDGE->PILL  @06:ACK:ok:4B
+[    14.295] BOTON presionado (anti-rebote OK), pote=2047
+[    14.295] PILL->BRIDGE  @0C:EVT:cmd_stop:19
+[    14.295] PILL->BRIDGE  @0D:STS:mode=STOP:06
+[    14.295] PILL->BRIDGE  @0D:DAT:param=127:43
+[    14.333] BRIDGE->PILL  @06:ACK:ok:4B
+[    18.333] BOTON presionado (anti-rebote OK), pote=2047
+[    18.333] (bridge desconectado: se agotan los 5 reintentos)
+[    18.333] PILL->BRIDGE  @0E:EVT:cmd_deploy:0C
+[    18.333] PILL->BRIDGE  @0F:STS:mode=DEPLOY:17
+[    18.333] PILL->BRIDGE  @0D:DAT:param=127:43
+[    18.833] PILL->BRIDGE  @0E:EVT:cmd_deploy:0C
+[    19.333] PILL->BRIDGE  @0E:EVT:cmd_deploy:0C
+[    19.833] PILL->BRIDGE  @0E:EVT:cmd_deploy:0C
+[    20.333] PILL->BRIDGE  @0E:EVT:cmd_deploy:0C
+[    20.833] PILL->BRIDGE  @0E:EVT:cmd_deploy:0C
+[    21.333] PILL->BRIDGE  @0B:ERR:timeout:4C
+
+Fin de la sesion: 5 cambios de modo, 1 timeout de ACK
