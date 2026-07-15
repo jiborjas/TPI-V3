@@ -19,7 +19,7 @@ void signals_init(signals_t *signals, signals_led_fn set_led,
         return;
     }
 
-    memset(signals, 0, sizeof(*signals));
+    memset(signals, 0, sizeof(*signals));   //inicaliza todos los bytes en cero
     signals->mode = CBOX_MODE_STOP;
     signals->set_led = set_led;
     signals->set_buzzer = set_buzzer;
@@ -85,6 +85,8 @@ static bool led_pattern_is_on(cbox_mode_t mode, uint32_t phase_ms)
     }
 }
 
+
+// actualiza físicamente el LED y el buzzer en tiempo real
 void signals_tick(signals_t *signals, uint32_t now_ms)
 {
     uint32_t phase;
@@ -105,7 +107,7 @@ void signals_tick(signals_t *signals, uint32_t now_ms)
 
     /* --- Buzzer: codigo de pitidos del ultimo cambio de modo --- */
     if (signals->beeps_remaining > 0U) {
-        if ((int32_t) (now_ms - signals->beep_edge_ms) >= 0) {
+        if ((int32_t) (now_ms - signals->beep_edge_ms) >= 0) { //Ya es tiempo de un cambio de estado?
             if (signals->beep_on) {
                 /* Termina la mitad sonora: pasa al silencio entre pitidos. */
                 signals->beep_on = false;
@@ -117,10 +119,10 @@ void signals_tick(signals_t *signals, uint32_t now_ms)
                 signals->beep_edge_ms = now_ms + BEEP_ON_MS;
             }
         }
-    }
+    }   //Una vez hecha la lógica de beep_on true/false, actualizo físicamente el buzzer
 
-    if (signals->set_buzzer != NULL) {
+    if (signals->set_buzzer != NULL) {  //Chequeo que el puntero al pin del buzzer sea coherente
         signals->set_buzzer(signals->context,
                             (signals->beeps_remaining > 0U) && signals->beep_on);
-    }
+    }   //Si hay pitidos restantes y estamos en el semiciclo on, prendo el buzzer. Sino, apago.
 }
