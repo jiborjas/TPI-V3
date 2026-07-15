@@ -119,7 +119,7 @@ static void task_app(void *args)
 #if ETAPA2_ADC_REPORT
     uint32_t next_adc_report_ms = 0U;
     char adc_payload[13];
-#endif
+#endif  // ETAPA2_ADC_REPORT
 
     (void) args;
 
@@ -132,7 +132,7 @@ static void task_app(void *args)
                             (unsigned) board_io_get_adc_raw());
             cbox_send_to_tx_queue(NULL, PROTOCOL_TYPE_DAT, adc_payload);
         }
-#endif
+#endif  // ETAPA2_ADC_REPORT
 
         /* Boton confirmado por el anti-rebote de TIM3. */
         if (xQueueReceive(g_button_queue, &button, 0) == pdPASS) {
@@ -195,9 +195,9 @@ static void task_uart_tx(void *args)
 void tasks_start(void)
 {
     g_uart_rx_queue = xQueueCreate(UART_RX_ISR_QUEUE_LENGTH, sizeof(uint8_t));
-    g_app_queue = xQueueCreate(APP_MESSAGE_QUEUE_LENGTH, sizeof(protocol_message_t));
+    g_app_queue     = xQueueCreate(APP_MESSAGE_QUEUE_LENGTH, sizeof(protocol_message_t));
     g_uart_tx_queue = xQueueCreate(UART_TX_QUEUE_LENGTH, sizeof(protocol_message_t));
-    g_button_queue = xQueueCreate(BUTTON_EVENT_QUEUE_LENGTH, sizeof(button_event_t));
+    g_button_queue  = xQueueCreate(BUTTON_EVENT_QUEUE_LENGTH, sizeof(button_event_t));
 
     /* Las ISR necesitan conocer sus colas antes de habilitarse. */
     uart_comm_set_rx_queue(g_uart_rx_queue);

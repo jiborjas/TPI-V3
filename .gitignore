@@ -1,0 +1,13 @@
+# Objetos y binarios en cualquier ubicación
+*.o
+*.elf
+*.bin
+*.hex
+*.map
+
+# Directorios específicos de build
+firmware/bin/
+firmware/obj/
+
+# Configuraciones locales de VS Code
+.vscode/
