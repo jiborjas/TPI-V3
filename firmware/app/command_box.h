@@ -36,6 +36,8 @@ typedef enum {
 /* Callback con el que la caja publica mensajes hacia la cola TX. */
 typedef void (*cbox_send_fn)(void *context, protocol_type_t type, const char *payload);
 
+
+// Estructura de control de la caja de comandos: modo, estado de ACK y estadisticas
 typedef struct {
     cbox_mode_t mode;             /* Modo actual de la caja. */
 
