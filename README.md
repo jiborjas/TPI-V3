@@ -59,7 +59,7 @@ señales transforma el modo activo en los patrones visibles y audibles.
 
 ```
 cd tests
-make run    # 53 tests de protocolo, parser, variante y señales
+make run    # 67 tests de protocolo, parser, variante y señales + chequeo RTOS
 make fsm    # recorrido estado por estado de la FSM (evidencia Etapa 1)
 make sim    # sesión simulada de ~25 s con reintentos de ACK (Etapa 3)
 ```
@@ -119,6 +119,28 @@ el reenvío del `EVT` cada 500 ms y el posterior `ERR:timeout`, responder:
 
 Las tramas inválidas, por ejemplo `@08:CMD:ping:00<Ctrl+J>`, deben producir
 `@0A:ERR:bounds:35`.
+
+## Evidencia del prototipo
+
+El montaje físico validó localmente UART, parser, pulsador con anti-rebote,
+potenciómetro/ADC, LED PWM y buzzer. Esta evidencia demuestra el
+funcionamiento autocontenido de la Blue Pill; la integración con ROS 2 y el
+robot queda sujeta a la disponibilidad del laboratorio de la cátedra.
+
+![Montaje físico de la caja de comandos](evidencia/TPI_V3_Hardware.jpeg)
+
+<p align="center">
+  <img src="evidencia/fotogramas/operacion_adc_exti_fsm.jpg" width="280" alt="Prototipo encendido durante la prueba de ADC, EXTI y FSM">
+  <img src="evidencia/fotogramas/ack_uart_confirmado.jpg" width="280" alt="Consola UART mostrando ACK:ok y las tramas de la caja">
+</p>
+
+De izquierda a derecha: operación del prototipo durante la prueba de ADC,
+EXTI y FSM; y confirmación `ACK:ok` sobre UART luego de un evento.
+
+- [Video: ADC, EXTI y FSM](evidencia/TPI_V3_ADC_EXTI_FSM.mp4): interacción
+  entre potenciómetro, pulsador y señalización de la caja de comandos.
+- [Video: intercambio de ACK por UART](evidencia/TPI_V3_Acknowledge.mp4):
+  confirmación de eventos y comportamiento del enlace serie.
 
 ## Conexionado
 

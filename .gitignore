@@ -17,3 +17,6 @@ tests/test_rtos_config
 !.vscode/
 !.vscode/launch.json
 !.vscode/tasks.json
+
+# Metadatos alternos creados por Windows al copiar archivos descargados
+*:Zone.Identifier
