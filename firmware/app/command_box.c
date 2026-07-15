@@ -70,13 +70,19 @@ static void cbox_emit(cbox_t *box, protocol_type_t type, const char *payload)
 }
 
 
-// implementa la lógica de respuesta ante una pulsación válida del botón
-void cbox_on_button(cbox_t *box, uint8_t param_value, uint32_t now_ms)
+/* Inicia una unica transaccion de cambio de modo. */
+bool cbox_on_button(cbox_t *box, uint8_t param_value, uint32_t now_ms)
 {
     char dat_payload[13];
 
     if (box == NULL) {
-        return;
+        return false;
+    }
+
+    /* ACK:ok no tiene ID; nunca puede haber dos EVT en vuelo. */
+    if (box->ack_pending) {
+        box->ignored_button_presses++;
+        return false;
     }
 
     /* Ciclo cerrado de la consigna: PATROL -> STOP -> DEPLOY -> RETURN. */
@@ -101,7 +107,8 @@ void cbox_on_button(cbox_t *box, uint8_t param_value, uint32_t now_ms)
     box->ack_pending = true;
     box->retries_left = ACK_MAX_RETRIES;
     box->ack_deadline_ms = now_ms + ACK_RETRY_PERIOD_MS;
-}   //El EVT representa un cambio de estado crítico!
+    return true;
+}
 
 
 // se encarga de procesar los mensajes que llegan a la Caja de Comandos
@@ -115,8 +122,8 @@ void cbox_on_message(cbox_t *box, const protocol_message_t *message, uint32_t no
 
     switch (message->type) {
     case PROTOCOL_TYPE_ACK:
-        /* ACK:ok del bridge confirma el ultimo EVT. */
-        if (strcmp(message->payload, "ok") == 0) {
+        /* Solo un ACK:ok mientras hay transaccion puede confirmarla. */
+        if (box->ack_pending && (strcmp(message->payload, "ok") == 0)) {
             box->ack_pending = false;
         }
         break;

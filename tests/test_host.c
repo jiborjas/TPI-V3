@@ -230,6 +230,52 @@ static void test_parser_resync(void)
           "reutiliza '@' que corto una trama incompleta");
 }
 
+/* La API textual de compatibilidad debe usar exactamente la misma FSM. */
+static void test_protocol_api_and_boundaries(void)
+{
+    char frame[PROTOCOL_MAX_FRAME_LENGTH + 1U];
+    char payload[PROTOCOL_MAX_PAYLOAD_LENGTH + 1U];
+    protocol_message_t msg;
+    parser_t p;
+    protocol_message_t out;
+    int errors = 0;
+    int messages = 0;
+    int encoded_length;
+    size_t frame_length = 0U;
+
+    encoded_length = protocol_encode("DAT", "adc=2048", frame, sizeof(frame));
+    CHECK((encoded_length == 20) &&
+          (strcmp(frame, "@0C:DAT:adc=2048:77\n") == 0),
+          "API textual codifica el ejemplo del protocolo");
+    CHECK(protocol_validate("0C:DAT:adc=2048:77", 18U) == 0,
+          "protocol_validate acepta una trama valida mediante la FSM");
+    CHECK(protocol_validate("0C:DAT:adc=2048:78", 18U) == -1,
+          "protocol_validate rechaza checksum incorrecto mediante la FSM");
+
+    memset(payload, 'x', PROTOCOL_MAX_PAYLOAD_LENGTH);
+    payload[PROTOCOL_MAX_PAYLOAD_LENGTH] = '\0';
+    CHECK(protocol_message_set(&msg, PROTOCOL_TYPE_DAT, payload) &&
+          protocol_encode_frame(&msg, frame, sizeof(frame), &frame_length) &&
+          (protocol_validate(&frame[1], frame_length - 2U) == 0),
+          "acepta payload maximo de 48 bytes");
+
+    parser_init(&p);
+    feed(&p, "@06:STS:OK:56\r\n", &out, &messages, &errors);
+    CHECK((messages == 1) && (errors == 0), "acepta CRLF solo al final de la trama");
+
+    parser_init(&p);
+    errors = 0;
+    feed(&p, "@06:DAT:a\r", &out, NULL, &errors);
+    CHECK((errors == 1) && (p.last_error == PARSER_ERROR_BODY),
+          "rechaza CR dentro del body y conserva el diagnostico");
+
+    parser_init(&p);
+    errors = 0;
+    feed(&p, "@0C:DAT:adc=2048:78\n", &out, NULL, &errors);
+    CHECK((errors == 1) && (p.last_error == PARSER_ERROR_CHECKSUM),
+          "expone error de checksum para diagnostico");
+}
+
 /* ------------------------------------------------------------------ */
 /* Tests de la caja de comandos (Variante 3)                           */
 /* ------------------------------------------------------------------ */
@@ -237,6 +283,7 @@ static void test_parser_resync(void)
 static void test_cbox_cycle_and_frames(void)
 {
     cbox_t box;
+    protocol_message_t ack;
 
     cbox_init(&box, capture_send, NULL);
     CHECK(box.mode == CBOX_MODE_STOP, "arranca en STOP (estado seguro)");
@@ -253,6 +300,8 @@ static void test_cbox_cycle_and_frames(void)
     CHECK((g_captured[2].type == PROTOCOL_TYPE_DAT) &&
           (strcmp(g_captured[2].payload, "param=007") == 0),
           "DAT:param=007 (ancho fijo)");
+    protocol_message_set(&ack, PROTOCOL_TYPE_ACK, "ok");
+    cbox_on_message(&box, &ack, 1100U);
 
     /* Presion 2: DEPLOY -> RETURN; STS de RETURN es mode=STOP (consigna). */
     capture_reset();
@@ -262,12 +311,45 @@ static void test_cbox_cycle_and_frames(void)
     CHECK(strcmp(g_captured[1].payload, "mode=STOP") == 0,
           "STS de RETURN es mode=STOP");
     CHECK(strcmp(g_captured[2].payload, "param=255") == 0, "DAT:param=255");
+    cbox_on_message(&box, &ack, 2100U);
 
     /* Presiones 3 y 4: RETURN -> PATROL -> STOP (ciclo completo). */
     cbox_on_button(&box, 0U, 3000U);
     CHECK(box.mode == CBOX_MODE_PATROL, "RETURN -> PATROL");
+    cbox_on_message(&box, &ack, 3100U);
     cbox_on_button(&box, 0U, 4000U);
     CHECK(box.mode == CBOX_MODE_STOP, "PATROL -> STOP (cierra el ciclo)");
+}
+
+static void test_cbox_serializes_pending_commands(void)
+{
+    cbox_t box;
+    protocol_message_t ack;
+
+    cbox_init(&box, capture_send, NULL);
+    capture_reset();
+    CHECK(cbox_on_button(&box, 42U, 0U), "acepta el primer comando");
+    CHECK(box.ack_pending && (strcmp(box.pending_evt, "cmd_deploy") == 0),
+          "mantiene el EVT pendiente hasta su ACK");
+
+    capture_reset();
+    CHECK(!cbox_on_button(&box, 99U, 10U),
+          "rechaza una pulsacion mientras espera ACK");
+    CHECK((g_captured_count == 0) && (box.mode == CBOX_MODE_DEPLOY) &&
+          (box.ignored_button_presses == 1U),
+          "no pisa modo ni trama pendiente");
+
+    protocol_message_set(&ack, PROTOCOL_TYPE_ACK, "ok");
+    cbox_on_message(&box, &ack, 20U);
+    capture_reset();
+    CHECK(cbox_on_button(&box, 99U, 30U),
+          "acepta el siguiente comando despues del ACK");
+    CHECK((box.mode == CBOX_MODE_RETURN) && (g_captured_count == 3) &&
+          (strcmp(g_captured[0].payload, "cmd_return") == 0),
+          "conserva el ciclo de modos al serializar comandos");
+
+    cbox_on_message(&box, &ack, 40U);
+    CHECK(!box.ack_pending, "ACK sin transacciones paralelas cierra la espera");
 }
 
 static void test_cbox_ack_and_retry(void)
@@ -579,8 +661,12 @@ int main(int argc, char **argv)
     printf("\n== Parser: resincronizacion ==\n");
     test_parser_resync();
 
+    printf("\n== API y limites de protocolo ==\n");
+    test_protocol_api_and_boundaries();
+
     printf("\n== Variante 3: ciclo de modos ==\n");
     test_cbox_cycle_and_frames();
+    test_cbox_serializes_pending_commands();
 
     printf("\n== Variante 3: ACK y reintentos ==\n");
     test_cbox_ack_and_retry();

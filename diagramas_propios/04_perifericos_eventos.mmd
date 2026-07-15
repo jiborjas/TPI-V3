@@ -1,0 +1,23 @@
+flowchart TD
+    init([board_io_init]) --> adci["ADC1: PA0 / IN0\ncalibrar y primera muestra"]
+    init --> ledi["TIM2 CH2: PA1\nPWM LED 1 kHz"]
+    init --> buzi["TIM4 CH1: PB6\nPWM buzzer 2 kHz"]
+    init --> timi["TIM3: interrupción cada 1 ms"]
+    init --> extii["PB1 + EXTI1\nflanco ascendente"]
+
+    extii --> edge["Limpiar EXTI\narmar anti-rebote 50 ms\nsi no estaba activo"]
+    timi --> tick["uptime_ms++"]
+    tick --> adcperiod{"¿período ADC vencido?"}
+    adcperiod -->|Sí| sample["Conversión ADC acotada\nactualizar adc_raw o timeout_count"]
+    adcperiod -->|No| debounce
+    sample --> debounce{"¿anti-rebote activo?"}
+    debounce -->|No| done([Fin ISR])
+    debounce -->|Sí| count["Decrementar ventana"]
+    count --> stable{"¿llegó a cero\ny PB1 sigue alto?"}
+    stable -->|No| done
+    stable -->|Sí| queue["Encolar button_event\ndesde ISR"]
+    queue --> done
+
+    app["task_app: cambio de modo"] --> signal["task_signals"]
+    signal --> ledout["board_io_set_led_duty\nTIM2 CCR2"]
+    signal --> buzzerout["board_io_set_buzzer\nTIM4 CCR1"]

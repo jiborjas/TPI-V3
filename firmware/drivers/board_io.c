@@ -47,6 +47,10 @@
 
 #define ADC_MAX_VALUE      4095U
 
+/* A 12 MHz una conversion tarda ~6 us. Este limite evita que una falla del
+ * ADC bloquee para siempre la ISR que sostiene el tiempo y el debounce. */
+#define ADC_EOC_TIMEOUT_LOOPS  10000U
+
 /* Cola hacia la aplicacion con presiones de boton confirmadas. */
 static QueueHandle_t g_button_queue = NULL;
 
@@ -56,6 +60,9 @@ static volatile uint32_t g_uptime_ms = 0U;
 /* Ultimo valor crudo leido del ADC (0-4095). */
 static volatile uint16_t g_adc_raw = 0U;
 
+/* Diagnostico de conversiones que no llegaron a EOC dentro del limite. */
+static volatile uint32_t g_adc_timeout_count = 0U;
+
 /* Contador hacia la proxima muestra de ADC. */
 static volatile uint16_t g_adc_elapsed_ms = 0U;
 
@@ -63,12 +70,33 @@ static volatile uint16_t g_adc_elapsed_ms = 0U;
 static volatile bool g_debounce_active = false;
 static volatile uint16_t g_debounce_remaining_ms = 0U;
 
+/* Hace una conversion unica sin dejar una espera no acotada en la ISR. */
+static bool adc_sample_once(void)
+{
+    uint32_t remaining = ADC_EOC_TIMEOUT_LOOPS;
+
+    adc_start_conversion_direct(ADC1);
+    while ((!adc_eoc(ADC1)) && (remaining > 0U)) {
+        remaining--;
+    }
+
+    if (!adc_eoc(ADC1)) {
+        g_adc_timeout_count++;
+        return false;
+    }
+
+    g_adc_raw = (uint16_t) adc_read_regular(ADC1);
+    return true;
+}
+
 /* ------------------------------------------------------------------ */
 /* Inicializacion                                                      */
 /* ------------------------------------------------------------------ */
 
 static void adc_setup(void)
 {
+    uint8_t channels[] = { ADC_CHANNEL0 };
+
     /* Prescaler del ADC: 72 MHz / 6 = 12 MHz (limite del ADC: 14 MHz). */
     rcc_set_adcpre(RCC_CFGR_ADCPRE_PCLK2_DIV6);
 
@@ -82,6 +110,9 @@ static void adc_setup(void)
     adc_disable_scan_mode(ADC1);
     adc_set_single_conversion_mode(ADC1);
 
+    /* No dependemos del valor de reset de SQR3: la secuencia es PA0/IN0. */
+    adc_set_regular_sequence(ADC1, 1U, channels);
+
     /* 55.5 ciclos de muestreo: lectura estable para un pote de 10k. */
     adc_set_sample_time(ADC1, ADC_CHANNEL0, ADC_SMPR_SMP_55DOT5CYC);
 
@@ -93,6 +124,9 @@ static void adc_setup(void)
     }
     adc_reset_calibration(ADC1);
     adc_calibrate(ADC1);
+
+    /* Disponemos de una lectura valida aun si se pulsa antes de los 500 ms. */
+    (void) adc_sample_once();
 }
 
 static void led_pwm_setup(void)
@@ -146,13 +180,14 @@ static void timebase_setup(void)
     timer_set_mode(TIM3, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP);
     timer_set_prescaler(TIM3, TIMEBASE_PSC);
     timer_set_period(TIM3, TIMEBASE_ARR);
+    timer_generate_event(TIM3, TIM_EGR_UG);
+    timer_clear_flag(TIM3, TIM_SR_UIF);
 
     /* Prioridad compatible con FreeRTOS (numericamente >= 0x50). */
     nvic_set_priority(NVIC_TIM3_IRQ, 0x60);
-    nvic_enable_irq(NVIC_TIM3_IRQ);
-
     timer_enable_irq(TIM3, TIM_DIER_UIE);
     timer_continuous_mode(TIM3);
+    nvic_enable_irq(NVIC_TIM3_IRQ);
     timer_enable_counter(TIM3);
 }
 
@@ -166,6 +201,7 @@ static void button_setup(void)
 
     exti_select_source(EXTI1, GPIOB);
     exti_set_trigger(EXTI1, EXTI_TRIGGER_RISING);   /* Presion: 0 -> 3.3 V. */
+    exti_reset_request(EXTI1);                       /* Evita un evento de arranque. */
     exti_enable_request(EXTI1);
 
     nvic_set_priority(NVIC_EXTI1_IRQ, 0x70);
@@ -193,6 +229,11 @@ void board_io_set_button_queue(QueueHandle_t queue)
 uint16_t board_io_get_adc_raw(void)
 {
     return g_adc_raw;
+}
+
+uint32_t board_io_get_adc_timeout_count(void)
+{
+    return g_adc_timeout_count;
 }
 
 uint8_t board_io_get_param(void)
@@ -256,12 +297,7 @@ void tim3_isr(void)
     g_adc_elapsed_ms++;
     if (g_adc_elapsed_ms >= ADC_SAMPLE_PERIOD_MS) {
         g_adc_elapsed_ms = 0U;
-
-        adc_start_conversion_direct(ADC1);
-        /* ~(55.5+12.5) ciclos a 12 MHz ~ 6 us: espera acotada y segura. */
-        while (!adc_eoc(ADC1)) {
-        }
-        g_adc_raw = (uint16_t) adc_read_regular(ADC1);
+        (void) adc_sample_once();
     }
 
     /* --- Anti-rebote del pulsador --- */

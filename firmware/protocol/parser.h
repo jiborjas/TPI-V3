@@ -23,6 +23,16 @@ typedef enum {
     PARSER_RESULT_ERROR
 } parser_result_t;
 
+/* Motivo del ultimo rechazo. La aplicacion puede conservar diagnosticos sin
+ * alterar la respuesta de protocolo (ERR:bounds). */
+typedef enum {
+    PARSER_ERROR_NONE = 0,
+    PARSER_ERROR_FORMAT,
+    PARSER_ERROR_LENGTH,
+    PARSER_ERROR_BODY,
+    PARSER_ERROR_CHECKSUM
+} parser_error_t;
+
 typedef struct {
     parser_state_t state;
     char length_field[3];
@@ -30,6 +40,7 @@ typedef struct {
     char checksum_field[3];
     uint8_t expected_body_length;
     uint8_t body_index;
+    parser_error_t last_error;
 } parser_t;
 
 void parser_init(parser_t *parser);

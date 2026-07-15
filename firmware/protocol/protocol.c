@@ -1,5 +1,6 @@
 #include <string.h>
 
+#include "parser.h"
 #include "protocol.h"
 
 /*
@@ -467,129 +468,35 @@ bool protocol_decode_body(const char *body, uint8_t body_length, protocol_messag
     return true;
 }
 
-/* Valida "LL:TTT:PAYLOAD:CC" sin '@' inicial ni '\n' final. */
+/*
+ * Valida "LL:TTT:PAYLOAD:CC" sin '@' inicial ni '\n' final.
+ *
+ * La FSM incremental es la unica implementacion que decide si una trama es
+ * valida. Este wrapper conserva la API de pruebas sin duplicar reglas de
+ * longitud, checksum y payload.
+ */
 int protocol_validate(const char *frame, size_t frame_len)
 {
-    /* Puntero al ultimo ':'; separa BODY de CC. */
-    const char *last_colon = NULL;
-
-    /* Puntero al primer byte del body. */
-    const char *body_start;
-
-    /* Longitud real del body segun posiciones dentro del frame. */
-    size_t body_length;
-
-    /* Indice para buscar separadores. */
+    parser_t parser;
+    protocol_message_t message;
+    parser_result_t result;
     size_t i;
 
-    /* Nibble alto del checksum recibido. */
-    int check_hi;
-
-    /* Nibble bajo del checksum recibido. */
-    int check_lo;
-
-    /* Nibble alto de LL. */
-    int len_hi;
-
-    /* Nibble bajo de LL. */
-    int len_lo;
-
-    /* Longitud declarada por LL. */
-    uint8_t declared_length;
-
-    /* Checksum recibido en la trama. */
-    uint8_t received_checksum;
-
-    /* Checksum recalculado localmente. */
-    uint8_t calculated_checksum;
-
-    /* Mensaje temporal: nos permite validar tambien TTT:PAYLOAD. */
-    protocol_message_t decoded_message;
-
-    /* Sin frame o con longitud imposible, la trama es invalida. */
-    if ((frame == NULL) || (frame_len < 9U)) {
+    if ((frame == NULL) || (frame_len == 0U) ||
+        (frame_len > (PROTOCOL_MAX_FRAME_SIZE - 2U))) {
         return -1;
     }
 
-    /* LL son los dos primeros caracteres. */
-    len_hi = hex_char_to_nibble(frame[0]);
+    parser_init(&parser);
+    (void) parser_consume_byte(&parser, (uint8_t) PROTOCOL_START_CHAR, &message);
 
-    /* LL son los dos primeros caracteres. */
-    len_lo = hex_char_to_nibble(frame[1]);
-
-    /* Ambos caracteres de LL tienen que ser hex mayuscula. */
-    if ((len_hi < 0) || (len_lo < 0)) {
-        return -1;
-    }
-
-    /* Despues de LL debe venir ':'. */
-    if (frame[2] != PROTOCOL_SEPARATOR_CHAR) {
-        return -1;
-    }
-
-    /* Convertimos LL textual a numero. */
-    declared_length = (uint8_t) (((uint8_t) len_hi << 4U) | (uint8_t) len_lo);
-
-    /* El body empieza despues de "LL:". */
-    body_start = &frame[3];
-
-    /* Buscamos el ultimo ':' para permitir ':' dentro del payload. */
-    for (i = 3U; i < frame_len; i++) {
-        if (frame[i] == PROTOCOL_SEPARATOR_CHAR) {
-            last_colon = &frame[i];
+    for (i = 0U; i < frame_len; i++) {
+        result = parser_consume_byte(&parser, (uint8_t) frame[i], &message);
+        if (result == PARSER_RESULT_ERROR) {
+            return -1;
         }
     }
 
-    /* Sin ':' antes de CC no podemos separar checksum. */
-    if (last_colon == NULL) {
-        return -1;
-    }
-
-    /* Despues del ultimo ':' tienen que venir exactamente dos hex de CC. */
-    if ((last_colon + 3) != (frame + frame_len)) {
-        return -1;
-    }
-
-    /* Body real = bytes entre "LL:" y el ultimo ':' antes de CC. */
-    body_length = (size_t) (last_colon - body_start);
-
-    /* LL debe coincidir con el body real. */
-    if (declared_length != body_length) {
-        return -1;
-    }
-
-    /* El body debe entrar en la estructura de protocolo. */
-    if (body_length > PROTOCOL_MAX_BODY_SIZE) {
-        return -1;
-    }
-
-    /* Convertimos CC alto. */
-    check_hi = hex_char_to_nibble(last_colon[1]);
-
-    /* Convertimos CC bajo. */
-    check_lo = hex_char_to_nibble(last_colon[2]);
-
-    /* CC solo acepta 0-9 y A-F. */
-    if ((check_hi < 0) || (check_lo < 0)) {
-        return -1;
-    }
-
-    /* Armamos el byte CC recibido. */
-    received_checksum = (uint8_t) (((uint8_t) check_hi << 4U) | (uint8_t) check_lo);
-
-    /* Recalculamos XOR sobre "LL:TTT:PAYLOAD", que termina justo antes del ultimo ':'. */
-    calculated_checksum = protocol_compute_checksum(frame, (size_t) (last_colon - frame));
-
-    /* Si CC no coincide, la trama pudo haberse corrompido. */
-    if (received_checksum != calculated_checksum) {
-        return -1;
-    }
-
-    /* Validamos formato de body y tipo conocido. */
-    if (!protocol_decode_body(body_start, declared_length, &decoded_message)) {
-        return -1;
-    }
-
-    /* La trama paso longitud, checksum y formato. */
-    return 0;
+    result = parser_consume_byte(&parser, (uint8_t) PROTOCOL_END_CHAR, &message);
+    return (result == PARSER_RESULT_MESSAGE_READY) ? 0 : -1;
 }

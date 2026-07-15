@@ -8,6 +8,12 @@
 # Directorios específicos de build
 firmware/bin/
 firmware/obj/
+tests/test_rtos_config
 
 # Configuraciones locales de VS Code
 .vscode/
+
+# Se versionan las configuraciones compartidas de build y depuracion.
+!.vscode/
+!.vscode/launch.json
+!.vscode/tasks.json

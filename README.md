@@ -26,6 +26,10 @@ diagramas/           Estados, parser, tareas, conexión, patrones (PNG)
 informe/             Informe técnico (docx + pdf)
 ```
 
+Las fuentes editables de los diagramas de flujo actuales están en
+[`diagramas_propios/`](diagramas_propios/README.md). Describen tareas, parser,
+transacción de ACK y periféricos a partir del código del firmware.
+
 ## Compilar el firmware
 
 1. Obtener dependencias (una sola vez): ver `firmware/third_party/README.md`.
@@ -40,6 +44,14 @@ make run    # 53 tests de protocolo, parser, variante y señales
 make fsm    # recorrido estado por estado de la FSM (evidencia Etapa 1)
 make sim    # sesión simulada de ~25 s con reintentos de ACK (Etapa 3)
 ```
+
+## Diagnóstico FreeRTOS
+
+El arranque verifica que todas las colas y tareas se hayan creado. Además,
+el firmware detecta falta de heap y desborde de pila; ante cualquiera de esos
+fallos se detiene para evitar corrupción adicional. Con ST-Link/GDB se puede
+inspeccionar `g_rtos_fatal_reason` y, si corresponde,
+`g_rtos_overflow_task`.
 
 ## Probar contra un bridge simulado (con hardware, sin robot)
 

@@ -8,12 +8,18 @@ SRC = test_host.c \
       ../firmware/app/command_box.c \
       ../firmware/app/signals.c
 
+RTOS_CONFIG_TEST = test_rtos_config
+
 test_host: $(SRC)
 	$(CC) $(CFLAGS) -o $@ $(SRC)
 
 .PHONY: run sim fsm clean
-run: test_host
+run: test_host $(RTOS_CONFIG_TEST)
 	./test_host
+	./$(RTOS_CONFIG_TEST)
+
+$(RTOS_CONFIG_TEST): test_rtos_config.c
+	$(CC) $(CFLAGS) -o $@ $<
 
 sim: test_host
 	./test_host --sim
@@ -22,4 +28,4 @@ fsm: test_host
 	./test_host --fsm
 
 clean:
-	rm -f test_host
+	rm -f test_host $(RTOS_CONFIG_TEST)

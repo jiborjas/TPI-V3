@@ -15,11 +15,16 @@
  *
  * Modos y ciclo (consigna):  PATROL -> STOP -> DEPLOY -> RETURN -> PATROL
  *
- * En cada presion valida del boton la caja:
+ * En cada presion valida del boton, si no hay una transaccion pendiente, la
+ * caja:
  *   1. avanza al modo siguiente,
  *   2. envia EVT:cmd_<modo> + STS:mode=<MODO> + DAT:param=NNN,
  *   3. queda esperando ACK:ok; si no llega en ACK_RETRY_PERIOD_MS
  *      reenvia el EVT hasta ACK_MAX_RETRIES veces y luego ERR:timeout.
+ *
+ * Mientras espera ese ACK no acepta otra presion: el protocolo no contiene un
+ * identificador de transaccion, por lo que permitir dos EVT pendientes haria
+ * imposible asociar ACK:ok con el evento correcto.
  *
  * Nota de la consigna: el STS de RETURN es mode=STOP (el robot vuelve a
  * base y queda detenido), por eso RETURN no tiene un STS propio.
@@ -48,6 +53,7 @@ typedef struct {
 
     uint32_t mode_changes;        /* Diagnostico: presiones validas. */
     uint32_t ack_timeouts;        /* Diagnostico: EVT que agotaron reenvios. */
+    uint32_t ignored_button_presses; /* Pulsaciones durante una espera de ACK. */
 
     cbox_send_fn send;            /* Como se emiten los mensajes. */
     void *send_context;           /* Contexto opaco para el callback. */
@@ -56,8 +62,11 @@ typedef struct {
 /* Arranca en STOP (estado seguro) sin emitir tramas hasta la primera presion. */
 void cbox_init(cbox_t *box, cbox_send_fn send, void *send_context);
 
-/* Presion valida de boton: cicla modo y emite EVT + STS + DAT. */
-void cbox_on_button(cbox_t *box, uint8_t param_value, uint32_t now_ms);
+/*
+ * Presion valida de boton: cicla modo y emite EVT + STS + DAT.
+ * Devuelve false si ya existe un EVT pendiente de ACK:ok.
+ */
+bool cbox_on_button(cbox_t *box, uint8_t param_value, uint32_t now_ms);
 
 /* Mensaje valido recibido del bridge (tipicamente ACK:ok). */
 void cbox_on_message(cbox_t *box, const protocol_message_t *message, uint32_t now_ms);

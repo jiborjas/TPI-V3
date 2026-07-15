@@ -1,0 +1,39 @@
+name: TPI-V3 CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  host-tests:
+    name: Tests de host
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Obtener código
+        uses: actions/checkout@v4
+
+      - name: Ejecutar pruebas
+        run: make test
+
+  firmware-build:
+    name: Compilación de firmware
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Obtener código
+        uses: actions/checkout@v4
+
+      - name: Instalar toolchain ARM
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes make gcc-arm-none-eabi binutils-arm-none-eabi
+
+      - name: Compilar firmware
+        run: make all
+
+      - name: Informar uso de memoria
+        run: make size

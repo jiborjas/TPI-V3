@@ -1,0 +1,18 @@
+flowchart TD
+    start([Pulsación validada]) --> pending{"¿ack_pending?"}
+    pending -->|Sí| ignored["Ignorar pulsación\nignored_button_presses++"]
+    pending -->|No| next["Avanzar modo\nPATROL → STOP → DEPLOY → RETURN"]
+    next --> param["Leer parámetro ADC\n0..255"]
+    param --> emit["Emitir EVT:cmd_...\nSTS:mode=...\nDAT:param=NNN"]
+    emit --> signal["Iniciar patrón LED y\ncódigo de pitidos"]
+    signal --> wait["Guardar EVT pendiente\nack_pending=true\nretries_left=ACK_MAX_RETRIES\ndeadline=ahora+500 ms"]
+
+    wait --> event{"Evento posterior"}
+    event -->|"ACK:ok válido"| ack["ack_pending=false\nTransacción confirmada"]
+    event -->|"Tick antes del deadline"| wait
+    event -->|"Tick tras deadline\ny retries_left > 0"| retry["Reemitir solo EVT pendiente\nretries_left--\nprogramar nuevo deadline"]
+    retry --> wait
+    event -->|"Tick tras deadline\ny retries_left = 0"| timeout["Emitir ERR:timeout\nack_pending=false\nack_timeouts++"]
+    event -->|"CMD / DAT / EVT / STS válido"| echo["Emitir ACK:ok"]
+    echo --> wait
+    event -->|"ACK no válido o ERR"| wait

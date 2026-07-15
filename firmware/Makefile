@@ -54,6 +54,7 @@ LOCAL_SRC = \
     protocol/protocol.c \
     protocol/parser.c \
     app/command_box.c \
+    app/rtos_hooks.c \
     app/signals.c \
     app/tasks.c
 

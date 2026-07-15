@@ -35,6 +35,9 @@ void board_io_set_button_queue(QueueHandle_t queue);
 /* Ultimo valor crudo del ADC (0-4095), actualizado cada 500 ms por TIM3. */
 uint16_t board_io_get_adc_raw(void);
 
+/* Conversiones ADC que excedieron el tiempo maximo de espera. */
+uint32_t board_io_get_adc_timeout_count(void);
+
 /* Valor del potenciometro mapeado a 0-255 (parametro auxiliar del comando). */
 uint8_t board_io_get_param(void);
 

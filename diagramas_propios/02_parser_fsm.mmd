@@ -1,0 +1,27 @@
+stateDiagram-v2
+    [*] --> WAIT_START
+    WAIT_START --> WAIT_START: ruido distinto de @
+    WAIT_START --> READ_LEN_HI: @
+    READ_LEN_HI --> READ_LEN_LO: hex
+    READ_LEN_LO --> EXPECT_LEN_SEPARATOR: hex y 4 <= LL <= MAX
+    EXPECT_LEN_SEPARATOR --> READ_BODY: :
+    READ_BODY --> READ_BODY: byte imprimible, no @ y body < LL
+    READ_BODY --> EXPECT_CHECK_SEPARATOR: se recibieron LL bytes
+    EXPECT_CHECK_SEPARATOR --> READ_CHECK_HI: :
+    READ_CHECK_HI --> READ_CHECK_LO: hex
+    READ_CHECK_LO --> EXPECT_END: hex
+    EXPECT_END --> EXPECT_END: CR opcional
+    EXPECT_END --> VALIDATE: LF
+    VALIDATE --> WAIT_START: CC y TTT:PAYLOAD válidos / MESSAGE_READY
+    VALIDATE --> WAIT_START: CC o body inválidos / ERROR
+
+    READ_LEN_HI --> ERROR: otro byte
+    READ_LEN_LO --> ERROR: otro byte o longitud inválida
+    EXPECT_LEN_SEPARATOR --> ERROR: distinto de :
+    READ_BODY --> ERROR: byte no permitido o desborde
+    EXPECT_CHECK_SEPARATOR --> ERROR: distinto de :
+    READ_CHECK_HI --> ERROR: no hexadecimal
+    READ_CHECK_LO --> ERROR: no hexadecimal
+    EXPECT_END --> ERROR: distinto de LF o CR
+    ERROR --> READ_LEN_HI: byte causante es @ (resincroniza)
+    ERROR --> WAIT_START: otro byte

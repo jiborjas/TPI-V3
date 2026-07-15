@@ -1,0 +1,22 @@
+flowchart LR
+    uart["USART1 RX ISR\nbyte recibido"] --> rxq[(g_uart_rx_queue)]
+    rxq --> rxparse["task_rx_parser\nparser FSM"]
+    rxparse -->|"trama válida"| appq[(g_app_queue)]
+    rxparse -->|"trama inválida"| err["ERR:bounds"]
+
+    exti["EXTI1 ISR\nflanco PB1"] --> debounce["TIM3 ISR\nanti-rebote 50 ms"]
+    debounce -->|"PB1 sigue alto"| buttonq[(g_button_queue)]
+    tim3["TIM3 ISR cada 1 ms\nuptime + ADC periódico"] --> debounce
+
+    buttonq --> app["task_app cada 10 ms\ncommand_box"]
+    appq --> app
+    app -->|"EVT / STS / DAT / ACK / ERR"| txq[(g_uart_tx_queue)]
+    err --> txq
+    txq --> tx["task_uart_tx\nprotocol_encode_frame"]
+    tx --> uarttx["USART1 TX"]
+
+    app -->|"nuevo modo aceptado"| signals["task_signals cada 10 ms\npatrones LED y buzzer"]
+    signals --> led["TIM2 CH2 / PA1\nPWM LED"]
+    signals --> buzzer["TIM4 CH1 / PB6\nPWM buzzer"]
+
+    tim3 -->|"dispara muestra periódica"| adc["ADC1 / PA0"]

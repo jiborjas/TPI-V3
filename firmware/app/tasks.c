@@ -136,10 +136,11 @@ static void task_app(void *args)
 
         /* Boton confirmado por el anti-rebote de TIM3. */
         if (xQueueReceive(g_button_queue, &button, 0) == pdPASS) {
-            cbox_on_button(&g_cbox, board_io_get_param(),
-                           board_io_get_uptime_ms());
-            signals_enter_mode(&g_signals, g_cbox.mode,
-                               board_io_get_uptime_ms());
+            if (cbox_on_button(&g_cbox, board_io_get_param(),
+                               button.timestamp_ms)) {
+                signals_enter_mode(&g_signals, g_cbox.mode,
+                                   button.timestamp_ms);
+            }
         }
 
         /* Mensajes ya validados por el parser (ACK del bridge, etc.). */
@@ -199,6 +200,12 @@ void tasks_start(void)
     g_uart_tx_queue = xQueueCreate(UART_TX_QUEUE_LENGTH, sizeof(protocol_message_t));
     g_button_queue  = xQueueCreate(BUTTON_EVENT_QUEUE_LENGTH, sizeof(button_event_t));
 
+    /* No es seguro iniciar ISR o tareas con una cola sin reservar. */
+    configASSERT(g_uart_rx_queue != NULL);
+    configASSERT(g_app_queue != NULL);
+    configASSERT(g_uart_tx_queue != NULL);
+    configASSERT(g_button_queue != NULL);
+
     /* Las ISR necesitan conocer sus colas antes de habilitarse. */
     uart_comm_set_rx_queue(g_uart_rx_queue);
     board_io_set_button_queue(g_button_queue);
@@ -208,10 +215,10 @@ void tasks_start(void)
     signals_init(&g_signals, signals_led_out, signals_buzzer_out, NULL);
     /* Al energizar: modo STOP (LED fijo), sin pitidos hasta la primera presion. */
 
-    xTaskCreate(task_rx_parser, "rxparse", 256, NULL, 3, NULL);
-    xTaskCreate(task_app, "app", 256, NULL, 2, NULL);
-    xTaskCreate(task_signals, "signals", 128, NULL, 2, NULL);
-    xTaskCreate(task_uart_tx, "uarttx", 256, NULL, 1, NULL);
+    configASSERT(xTaskCreate(task_rx_parser, "rxparse", 256, NULL, 3, NULL) == pdPASS);
+    configASSERT(xTaskCreate(task_app, "app", 256, NULL, 2, NULL) == pdPASS);
+    configASSERT(xTaskCreate(task_signals, "signals", 128, NULL, 2, NULL) == pdPASS);
+    configASSERT(xTaskCreate(task_uart_tx, "uarttx", 256, NULL, 1, NULL) == pdPASS);
 
     vTaskStartScheduler();
 }

@@ -80,10 +80,12 @@ static bool is_body_byte_allowed(uint8_t byte)
 }
 
 /* Manejo comun de error: resetear y reutilizar '@' si justo aparecio uno. */
-static parser_result_t parser_fail(parser_t *parser, uint8_t byte)
+static parser_result_t parser_fail(parser_t *parser, uint8_t byte,
+                                   parser_error_t error)
 {
     /* Borramos todo lo acumulado de la trama rota. */
     parser_reset(parser);
+    parser->last_error = error;
 
     /*
      * Regla de resincronizacion pedida por el PDF:
@@ -127,6 +129,9 @@ void parser_reset(parser_t *parser)
 
     /* Todavia no recibimos ningun byte del body actual. */
     parser->body_index = 0U;
+
+    /* Un reset explicito deja el diagnostico en estado conocido. */
+    parser->last_error = PARSER_ERROR_NONE;
 }
 
 /* Inicializar es resetear desde cero. */
@@ -153,11 +158,10 @@ parser_result_t parser_consume_byte(parser_t *parser, uint8_t byte, protocol_mes
         return PARSER_RESULT_ERROR;
     }
 
-    /*
-     * Algunas terminales mandan CRLF. El protocolo termina con LF, asi que
-     * ignoramos '\r' para que la prueba manual sea mas amable.
-     */
-    if (byte == (uint8_t) '\r') {
+    /* Aceptamos CRLF solamente entre CC y LF. Un CR dentro de la trama es
+     * un byte no permitido y no debe desaparecer silenciosamente. */
+    if ((byte == (uint8_t) '\r') &&
+        (parser->state == PARSER_STATE_EXPECT_END)) {
         return PARSER_RESULT_IN_PROGRESS;
     }
 
@@ -174,7 +178,7 @@ parser_result_t parser_consume_byte(parser_t *parser, uint8_t byte, protocol_mes
     case PARSER_STATE_READ_LEN_HI:
         /* Primer caracter de LL: debe ser hexadecimal. */
         if (!is_hex_digit(byte)) {
-            return parser_fail(parser, byte);
+            return parser_fail(parser, byte, PARSER_ERROR_FORMAT);
         }
 
         /* Guardamos el primer digito de longitud. */
@@ -189,7 +193,7 @@ parser_result_t parser_consume_byte(parser_t *parser, uint8_t byte, protocol_mes
     case PARSER_STATE_READ_LEN_LO:
         /* Segundo caracter de LL: tambien debe ser hexadecimal. */
         if (!is_hex_digit(byte)) {
-            return parser_fail(parser, byte);
+            return parser_fail(parser, byte, PARSER_ERROR_FORMAT);
         }
 
         /* Guardamos el segundo digito. */
@@ -203,12 +207,12 @@ parser_result_t parser_consume_byte(parser_t *parser, uint8_t byte, protocol_mes
 
         /* Minimo body permitido: "TTT:"; el payload puede ser vacio. */
         if (parser->expected_body_length < (PROTOCOL_TYPE_LENGTH + 1U)) {
-            return parser_fail(parser, byte);
+            return parser_fail(parser, byte, PARSER_ERROR_LENGTH);
         }
 
         /* Maximo body permitido: "TTT:" + payload maximo. */
         if (parser->expected_body_length > PROTOCOL_MAX_BODY_SIZE) {
-            return parser_fail(parser, byte);
+            return parser_fail(parser, byte, PARSER_ERROR_LENGTH);
         }
 
         /* Despues de LL debe venir ':'. */
@@ -220,7 +224,7 @@ parser_result_t parser_consume_byte(parser_t *parser, uint8_t byte, protocol_mes
     case PARSER_STATE_EXPECT_LEN_SEPARATOR:
         /* El separador despues de LL es obligatorio. */
         if (byte != (uint8_t) PROTOCOL_SEPARATOR_CHAR) {
-            return parser_fail(parser, byte);
+            return parser_fail(parser, byte, PARSER_ERROR_FORMAT);
         }
 
         /* Arrancamos a llenar el body desde la posicion cero. */
@@ -235,12 +239,12 @@ parser_result_t parser_consume_byte(parser_t *parser, uint8_t byte, protocol_mes
     case PARSER_STATE_READ_BODY:
         /* Cada byte del body debe ser imprimible y no puede ser '@'. */
         if (!is_body_byte_allowed(byte)) {
-            return parser_fail(parser, byte);
+            return parser_fail(parser, byte, PARSER_ERROR_BODY);
         }
 
         /* Proteccion extra contra escrituras fuera del buffer. */
         if (parser->body_index >= PROTOCOL_MAX_BODY_SIZE) {
-            return parser_fail(parser, byte);
+            return parser_fail(parser, byte, PARSER_ERROR_LENGTH);
         }
 
         /* Guardamos este byte del body. */
@@ -261,7 +265,7 @@ parser_result_t parser_consume_byte(parser_t *parser, uint8_t byte, protocol_mes
     case PARSER_STATE_EXPECT_CHECK_SEPARATOR:
         /* Antes del checksum debe venir ':'. */
         if (byte != (uint8_t) PROTOCOL_SEPARATOR_CHAR) {
-            return parser_fail(parser, byte);
+            return parser_fail(parser, byte, PARSER_ERROR_FORMAT);
         }
 
         /* Pasamos al primer caracter de CC. */
@@ -273,7 +277,7 @@ parser_result_t parser_consume_byte(parser_t *parser, uint8_t byte, protocol_mes
     case PARSER_STATE_READ_CHECK_HI:
         /* Primer digito de CC: hexadecimal mayuscula. */
         if (!is_hex_digit(byte)) {
-            return parser_fail(parser, byte);
+            return parser_fail(parser, byte, PARSER_ERROR_FORMAT);
         }
 
         /* Guardamos nibble alto de CC. */
@@ -288,7 +292,7 @@ parser_result_t parser_consume_byte(parser_t *parser, uint8_t byte, protocol_mes
     case PARSER_STATE_READ_CHECK_LO:
         /* Segundo digito de CC: tambien hexadecimal. */
         if (!is_hex_digit(byte)) {
-            return parser_fail(parser, byte);
+            return parser_fail(parser, byte, PARSER_ERROR_FORMAT);
         }
 
         /* Guardamos nibble bajo de CC. */
@@ -306,7 +310,7 @@ parser_result_t parser_consume_byte(parser_t *parser, uint8_t byte, protocol_mes
     case PARSER_STATE_EXPECT_END:
         /* La trama bien formada termina con '\n'. */
         if (byte != (uint8_t) PROTOCOL_END_CHAR) {
-            return parser_fail(parser, byte);
+            return parser_fail(parser, byte, PARSER_ERROR_FORMAT);
         }
 
         /*
@@ -328,12 +332,14 @@ parser_result_t parser_consume_byte(parser_t *parser, uint8_t byte, protocol_mes
         /* Si no coincide, la trama se descarta. */
         if (received_checksum != computed_checksum) {
             parser_reset(parser);
+            parser->last_error = PARSER_ERROR_CHECKSUM;
             return PARSER_RESULT_ERROR;
         }
 
         /* Checksum OK: ahora validamos y separamos TTT:PAYLOAD. */
         if (!protocol_decode_body(parser->body, parser->expected_body_length, message)) {
             parser_reset(parser);
+            parser->last_error = PARSER_ERROR_BODY;
             return PARSER_RESULT_ERROR;
         }
 
@@ -346,6 +352,7 @@ parser_result_t parser_consume_byte(parser_t *parser, uint8_t byte, protocol_mes
     default:
         /* Si el estado se corrompe, volvemos a un punto conocido. */
         parser_reset(parser);
+        parser->last_error = PARSER_ERROR_FORMAT;
         return PARSER_RESULT_ERROR;
     }
 }

@@ -21,6 +21,13 @@
 #define configUSE_COUNTING_SEMAPHORES           1
 #define configQUEUE_REGISTRY_SIZE               8
 
+/* Si heap_4 no puede reservar memoria, detenemos el sistema para poder
+ * diagnosticarlo por ST-Link en vez de continuar con handles invalidos. */
+#define configUSE_MALLOC_FAILED_HOOK             1
+
+/* Nivel 2 comprueba limites y patrones de la pila en cada cambio de contexto. */
+#define configCHECK_FOR_STACK_OVERFLOW           2
+
 #define INCLUDE_vTaskDelay                      1
 #define INCLUDE_vTaskDelayUntil                 1
 #define INCLUDE_vTaskDelete                     1
