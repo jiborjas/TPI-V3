@@ -1,0 +1,2 @@
+*.mp4 filter=lfs diff=lfs merge=lfs -text
+presentacion/TPI-V3_Presentacion_con_videos.odp filter=lfs diff=lfs merge=lfs -text
