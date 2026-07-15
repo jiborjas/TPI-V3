@@ -72,7 +72,7 @@ static bool payload_is_valid(const char *payload, uint8_t payload_length)
         /*
          * 0x20..0x7E son caracteres ASCII imprimibles.
          * '@' se reserva para resincronizar el parser cuando hay ruido.
-         * ':' si se permite: LL dice exactamente donde termina el body.
+         * ':' sí está permitido porque LL dice exactamente donde termina el body.
          */
         if ((c < 0x20U) || (c > 0x7EU) || (c == (uint8_t) PROTOCOL_START_CHAR)) {
             return false;
@@ -235,7 +235,7 @@ bool protocol_message_set(protocol_message_t *message, protocol_type_t type, con
 bool protocol_encode_frame(const protocol_message_t *message,
                            char *frame,
                            size_t frame_size,
-                           size_t *frame_length)
+                           size_t *frame_length)    //pasar frame_length es redundante a propósito
 {
     /* Texto de tres letras asociado al enum. */
     const char *type_text;
