@@ -19,16 +19,35 @@ firmware/            Código fuente (FreeRTOS + libopencm3)
   protocol/          protocol.c (framing/checksum) + parser.c (FSM)
   app/               command_box (lógica variante) + signals (patrones) + tasks
   third_party/       linker.ld (incluido) + libopencm3/FreeRTOS (ver README)
-tests/               Tests de host (gcc): 53 casos + simulador de sesión
+tests/               Tests de host (gcc): 67 casos + verificación de configuración RTOS
 tools/bridge_sim.py  Bridge simulado por puerto serie (responde ACK:ok)
 evidencia/           Capturas de tests, FSM, ADC y sesión simulada
-diagramas/           Estados, parser, tareas, conexión, patrones (PNG)
+diagramas_varios/    Estados, parser, tareas, conexión, patrones y PuTTY (PNG)
 informe/             Informe técnico (docx + pdf)
 ```
 
 Las fuentes editables de los diagramas de flujo actuales están en
 [`diagramas_propios/`](diagramas_propios/README.md). Describen tareas, parser,
 transacción de ACK y periféricos a partir del código del firmware.
+
+## Arquitectura y comportamiento
+
+La arquitectura separa las interrupciones breves, las colas de FreeRTOS y la
+lógica de aplicación para mantener la recepción UART y el botón desacoplados.
+
+![Arquitectura de tareas, ISR y colas FreeRTOS](diagramas_varios/arquitectura_tareas.png)
+
+El parser incremental consume un byte por vez, valida longitud y checksum, y
+puede resincronizarse ante ruido o una trama incompleta.
+
+![Máquina de estados del parser](diagramas_varios/fsm_parser.png)
+
+La caja de comandos recorre los cuatro modos de la variante y el motor de
+señales transforma el modo activo en los patrones visibles y audibles.
+
+![Ciclo de estados de la caja de comandos](diagramas_varios/estados_caja_comandos.png)
+
+![Patrones de LED y buzzer por modo](diagramas_varios/patrones_led_buzzer.png)
 
 ## Compilar el firmware
 
@@ -61,6 +80,46 @@ python3 tools/bridge_sim.py COM5            # responde ACK:ok a cada EVT
 python3 tools/bridge_sim.py COM5 --no-ack   # escenario de falla (timeout)
 ```
 
+## Prueba manual UART con PuTTY
+
+Configurar una sesión serie sobre el puerto `COM` del adaptador USB-UART con
+`115200` baudios, `8N1`, paridad `None` y control de flujo `None`.
+
+En **Terminal** usar:
+
+- `Implicit CR in every LF`: activado. Solo mejora la visualización: el
+  firmware continúa transmitiendo el `LF` exigido por el protocolo, pero
+  PuTTY vuelve al inicio de la línea y evita una consola en diagonal.
+- `Local echo`: `Force on`, para ver las tramas que se escriben.
+- `Local line editing`: `Force off`, para enviar cada byte inmediatamente.
+
+Configuración de referencia:
+
+![Opciones de Terminal en PuTTY](diagramas_varios/putty_config.png)
+
+La trama debe finalizar con `LF`. En PuTTY se envía con `Ctrl+J`; presionar
+solamente Enter suele enviar `CR` y no completa una trama. Por ejemplo:
+
+```text
+@08:CMD:ping:52<Ctrl+J>
+```
+
+La Blue Pill confirma una trama válida recibida con:
+
+```text
+@06:ACK:ok:4B
+```
+
+Al presionar el botón, la aplicación envía `EVT`, `STS` y `DAT`. Para evitar
+el reenvío del `EVT` cada 500 ms y el posterior `ERR:timeout`, responder:
+
+```text
+@06:ACK:ok:4B<Ctrl+J>
+```
+
+Las tramas inválidas, por ejemplo `@08:CMD:ping:00<Ctrl+J>`, deben producir
+`@0A:ERR:bounds:35`.
+
 ## Conexionado
 
 | Pin Blue Pill | Función | Periférico |
@@ -74,3 +133,5 @@ python3 tools/bridge_sim.py COM5 --no-ack   # escenario de falla (timeout)
 
 Todas las masas comparten GND. La Blue Pill opera a 3.3 V: ningún pin
 recibe 5 V. Alimentación por USB desde la PC del bridge.
+
+![Esquema de conexionado de la Blue Pill](diagramas_varios/esquema_conexion.png)
