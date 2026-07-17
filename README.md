@@ -21,13 +21,15 @@ firmware/            Código fuente (FreeRTOS + libopencm3)
   third_party/       linker.ld (incluido) + libopencm3/FreeRTOS (ver README)
 tests/               Tests de host (gcc): 67 casos + verificación de configuración RTOS
 tools/bridge_sim.py  Bridge simulado por puerto serie (responde ACK:ok)
-evidencia/           Capturas de tests, FSM, ADC y sesión simulada
-diagramas_varios/    Estados, parser, tareas, conexión, patrones y PuTTY (PNG)
-informe/             Informe técnico (docx + pdf)
+evidencia/           Pruebas, capturas, videos e integración final
+informe/             Informe y presentación final (PDF)
+  diagramas_varios/  Estados, parser, tareas, conexión, patrones y PuTTY (PNG)
+  diagramas_propios/ Fuentes editables de diagramas (Mermaid)
+  diagramas_lucidchart/ Diagramas de flujo exportados desde Lucidchart
 ```
 
 Las fuentes editables de los diagramas de flujo actuales están en
-[`diagramas_propios/`](diagramas_propios/README.md). Describen tareas, parser,
+[`informe/diagramas_propios/`](informe/diagramas_propios/README.md). Describen tareas, parser,
 transacción de ACK y periféricos a partir del código del firmware.
 
 ## Arquitectura y comportamiento
@@ -35,19 +37,19 @@ transacción de ACK y periféricos a partir del código del firmware.
 La arquitectura separa las interrupciones breves, las colas de FreeRTOS y la
 lógica de aplicación para mantener la recepción UART y el botón desacoplados.
 
-![Arquitectura de tareas, ISR y colas FreeRTOS](diagramas_varios/arquitectura_tareas.png)
+![Arquitectura de tareas, ISR y colas FreeRTOS](informe/diagramas_varios/arquitectura_tareas.png)
 
 El parser incremental consume un byte por vez, valida longitud y checksum, y
 puede resincronizarse ante ruido o una trama incompleta.
 
-![Máquina de estados del parser](diagramas_varios/fsm_parser.png)
+![Máquina de estados del parser](informe/diagramas_varios/fsm_parser.png)
 
 La caja de comandos recorre los cuatro modos de la variante y el motor de
 señales transforma el modo activo en los patrones visibles y audibles.
 
-![Ciclo de estados de la caja de comandos](diagramas_varios/estados_caja_comandos.png)
+![Ciclo de estados de la caja de comandos](informe/diagramas_varios/estados_caja_comandos.png)
 
-![Patrones de LED y buzzer por modo](diagramas_varios/patrones_led_buzzer.png)
+![Patrones de LED y buzzer por modo](informe/diagramas_varios/patrones_led_buzzer.png)
 
 ## Compilar el firmware
 
@@ -95,7 +97,7 @@ En **Terminal** usar:
 
 Configuración de referencia:
 
-![Opciones de Terminal en PuTTY](diagramas_varios/putty_config.png)
+![Opciones de Terminal en PuTTY](informe/diagramas_varios/putty_config.png)
 
 La trama debe finalizar con `LF`. En PuTTY se envía con `Ctrl+J`; presionar
 solamente Enter suele enviar `CR` y no completa una trama. Por ejemplo:
@@ -156,4 +158,4 @@ EXTI y FSM; y confirmación `ACK:ok` sobre UART luego de un evento.
 Todas las masas comparten GND. La Blue Pill opera a 3.3 V: ningún pin
 recibe 5 V. Alimentación por USB desde la PC del bridge.
 
-![Esquema de conexionado de la Blue Pill](diagramas_varios/esquema_conexion.png)
+![Esquema de conexionado de la Blue Pill](informe/diagramas_varios/esquema_conexion.png)
